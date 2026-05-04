@@ -1,0 +1,25 @@
+# Arquivos de Build
+build/
+app/build/
+*.pyc
+
+# Arquivos do sistema e IDE
+.gradle/
+/local.properties
+.idea/
+*.iml
+.DS_Store
+
+# Segurança e Assinatura
+*.jks
+*.keystore
+*.p12
+google-services.json
+
+# Binários gerados
+*.apk
+*.ap_
+*.dex
+
+# Logs
+*.log
