@@ -1,6 +1,8 @@
 package com.example.calendar.ui
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import android.content.Context
+import androidx.lifecycle.AndroidViewModel
 import com.example.calendar.data.HolidayProvider
 import com.example.calendar.model.Holiday
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,14 +20,37 @@ data class CalendarUiState(
     val isLocationLoaded: Boolean = false
 )
 
-class CalendarViewModel : ViewModel() {
+class CalendarViewModel(application: Application) : AndroidViewModel(application) {
     private val holidayProvider = HolidayProvider()
+    private val sharedPreferences = application.getSharedPreferences("calendar_prefs", Context.MODE_PRIVATE)
     
     private val _uiState = MutableStateFlow(CalendarUiState())
     val uiState: StateFlow<CalendarUiState> = _uiState.asStateFlow()
 
     init {
+        loadSavedLocation()
         updateHolidays()
+    }
+
+    private fun loadSavedLocation() {
+        val savedState = sharedPreferences.getString("selected_state", null)
+        val savedCity = sharedPreferences.getString("selected_city", null)
+        
+        if (savedState != null) {
+            _uiState.value = _uiState.value.copy(
+                selectedState = savedState,
+                selectedCity = savedCity,
+                isLocationLoaded = true
+            )
+        }
+    }
+
+    private fun saveLocation(state: String, city: String?) {
+        sharedPreferences.edit().apply {
+            putString("selected_state", state)
+            putString("selected_city", city)
+            apply()
+        }
     }
 
     fun onMonthChange(newMonth: YearMonth) {
@@ -37,6 +62,7 @@ class CalendarViewModel : ViewModel() {
 
     fun onStateChange(newState: String) {
         _uiState.value = _uiState.value.copy(selectedState = newState)
+        saveLocation(newState, _uiState.value.selectedCity)
         updateHolidays()
     }
 
@@ -46,6 +72,7 @@ class CalendarViewModel : ViewModel() {
             selectedCity = city,
             isLocationLoaded = true
         )
+        saveLocation(state, city)
         updateHolidays()
     }
 
@@ -55,6 +82,7 @@ class CalendarViewModel : ViewModel() {
             selectedCity = city,
             isLocationLoaded = true
         )
+        saveLocation(state, city)
         updateHolidays()
     }
 
