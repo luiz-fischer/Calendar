@@ -1,6 +1,7 @@
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
+    id 'kotlin-kapt'
 }
 
 android {
@@ -43,17 +44,16 @@ android {
         compose true
     }
     composeOptions {
-        // Versão correta do Compiler para o Kotlin 1.9.22
         kotlinCompilerExtensionVersion '1.5.8'
     }
     packagingOptions {
         resources {
             excludes += '/META-INF/{AL2.0,LGPL2.1}'
+            excludes += 'META-INF/DEPENDENCIES'
         }
     }
 }
 
-// Desativa as tarefas de Lint Vital que causam conflito de metadados no build de release
 tasks.whenTaskAdded { task ->
     if (task.name.startsWith("lintVital")) {
         task.enabled = false
@@ -61,7 +61,6 @@ tasks.whenTaskAdded { task ->
 }
 
 dependencies {
-    // Alinhado com a versão do plugin no build.gradle raiz
     implementation platform("org.jetbrains.kotlin:kotlin-bom:1.9.22")
     
     implementation 'androidx.core:core-ktx:1.12.0'
@@ -74,6 +73,22 @@ dependencies {
     implementation 'androidx.compose.material3:material3'
     implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2'
     
+    // Room
+    def room_version = "2.6.1"
+    implementation "androidx.room:room-runtime:$room_version"
+    implementation "androidx.room:room-ktx:$room_version"
+    kapt "androidx.room:room-compiler:$room_version"
+
+    // WorkManager
+    implementation "androidx.work:work-runtime-ktx:2.9.0"
+    
+    // Google Calendar API & Auth
+    implementation 'com.google.android.gms:play-services-auth:20.7.0'
+    implementation('com.google.apis:google-api-services-calendar:v3-rev20220715-2.0.0') {
+        exclude group: 'org.apache.httpcomponents'
+    }
+    implementation 'com.google.api-client:google-api-client-android:2.2.0'
+
     // Localização
     implementation 'com.google.android.gms:play-services-location:21.0.1'
     implementation "com.google.accompanist:accompanist-permissions:0.32.0"

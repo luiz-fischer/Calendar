@@ -9,11 +9,20 @@ data class EventEntity(
     val googleId: String? = null,
     val title: String,
     val description: String,
-    val date: String, // ISO-8601 format
+    val date: String, // ISO-8601 format (YYYY-MM-DD)
     val lastUpdated: Long,
-    val syncStatus: SyncStatus = SyncStatus.LOCAL_ONLY
+    val syncStatus: SyncStatus = SyncStatus.LOCAL_ONLY,
+    
+    // Recurrence fields (Google Calendar Style)
+    val isRecurring: Boolean = false,
+    val recurrenceType: RecurrenceType = RecurrenceType.NONE,
+    val recurrenceEndDate: String? = null // Optional end date for recurrence
 )
 
 enum class SyncStatus {
     LOCAL_ONLY, SYNCED, PENDING_UPDATE, CONFLICT
+}
+
+enum class RecurrenceType {
+    NONE, DAILY, WEEKLY, MONTHLY, YEARLY
 }

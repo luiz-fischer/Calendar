@@ -12,7 +12,7 @@ class SyncWorker(context: Context, workerParams: WorkerParameters) :
 
     override suspend fun doWork(): Result {
         val database = AppDatabase.getDatabase(applicationContext)
-        val eventDao = database.eventDao()
+        database.eventDao()
         
         // 1. Verificar se o usuário está logado no Google (Placeholder da lógica de Auth)
         val prefs = applicationContext.getSharedPreferences("calendar_prefs", Context.MODE_PRIVATE)

@@ -7,9 +7,9 @@ import java.time.Month
 
 class HolidayProvider {
     /**
-     * Returns a list of holidays for the given year, state, and city.
+     * Returns all known holidays for the given year (National, State, and Municipal).
      */
-    fun getHolidays(year: Int, state: String?, city: String?): List<Holiday> {
+    fun getAllHolidays(year: Int): List<Holiday> {
         val holidays = mutableListOf<Holiday>()
 
         // Fixed National Holidays
@@ -30,70 +30,50 @@ class HolidayProvider {
         holidays.add(Holiday(easter, "Páscoa", HolidayType.NATIONAL))
         holidays.add(Holiday(easter.plusDays(60), "Corpus Christi", HolidayType.NATIONAL))
 
-        // State Holidays
-        when (state?.uppercase()) {
-            "AC" -> holidays.add(Holiday(LocalDate.of(year, Month.JUNE, 15), "Aniversário do Acre", HolidayType.STATE, "AC"))
-            "AL" -> holidays.add(Holiday(LocalDate.of(year, Month.SEPTEMBER, 16), "Emancipação de Alagoas", HolidayType.STATE, "AL"))
-            "AP" -> holidays.add(Holiday(LocalDate.of(year, Month.SEPTEMBER, 13), "Criação do Território", HolidayType.STATE, "AP"))
-            "AM" -> holidays.add(Holiday(LocalDate.of(year, Month.SEPTEMBER, 5), "Elevação do Amazonas", HolidayType.STATE, "AM"))
-            "BA" -> holidays.add(Holiday(LocalDate.of(year, Month.JULY, 2), "Independência da Bahia", HolidayType.STATE, "BA"))
-            "CE" -> holidays.add(Holiday(LocalDate.of(year, Month.MARCH, 25), "Data Magna do Ceará", HolidayType.STATE, "CE"))
-            "DF" -> holidays.add(Holiday(LocalDate.of(year, Month.APRIL, 21), "Fundação de Brasília", HolidayType.STATE, "DF"))
-            "ES" -> {} 
-            "GO" -> {} 
-            "MA" -> holidays.add(Holiday(LocalDate.of(year, Month.JULY, 28), "Adesão do Maranhão", HolidayType.STATE, "MA"))
-            "MT" -> holidays.add(Holiday(LocalDate.of(year, Month.NOVEMBER, 20), "Consciência Negra", HolidayType.STATE, "MT"))
-            "MS" -> holidays.add(Holiday(LocalDate.of(year, Month.OCTOBER, 11), "Criação do Estado", HolidayType.STATE, "MS"))
-            "MG" -> holidays.add(Holiday(LocalDate.of(year, Month.APRIL, 21), "Data Magna", HolidayType.STATE, "MG"))
-            "PA" -> holidays.add(Holiday(LocalDate.of(year, Month.AUGUST, 15), "Adesão do Pará", HolidayType.STATE, "PA"))
-            "PB" -> holidays.add(Holiday(LocalDate.of(year, Month.AUGUST, 5), "Fundação da Paraíba", HolidayType.STATE, "PB"))
-            "PR" -> holidays.add(Holiday(LocalDate.of(year, Month.DECEMBER, 19), "Emancipação do Paraná", HolidayType.STATE, "PR"))
-            "PE" -> holidays.add(Holiday(LocalDate.of(year, Month.MARCH, 6), "Data Magna", HolidayType.STATE, "PE"))
-            "PI" -> holidays.add(Holiday(LocalDate.of(year, Month.OCTOBER, 19), "Dia do Piauí", HolidayType.STATE, "PI"))
-            "RJ" -> holidays.add(Holiday(LocalDate.of(year, Month.APRIL, 23), "Dia de São Jorge", HolidayType.STATE, "RJ"))
-            "RN" -> holidays.add(Holiday(LocalDate.of(year, Month.OCTOBER, 3), "Mártires de Cunhaú e Uruaçu", HolidayType.STATE, "RN"))
-            "RS" -> holidays.add(Holiday(LocalDate.of(year, Month.SEPTEMBER, 20), "Revolução Farroupilha", HolidayType.STATE, "RS"))
-            "RO" -> holidays.add(Holiday(LocalDate.of(year, Month.JANUARY, 4), "Criação de Rondônia", HolidayType.STATE, "RO"))
-            "RR" -> holidays.add(Holiday(LocalDate.of(year, Month.OCTOBER, 5), "Criação de Roraima", HolidayType.STATE, "RR"))
-            "SC" -> holidays.add(Holiday(LocalDate.of(year, Month.AUGUST, 11), "Data Magna de SC", HolidayType.STATE, "SC"))
-            "SP" -> holidays.add(Holiday(LocalDate.of(year, Month.JULY, 9), "Rev. Constitucionalista", HolidayType.STATE, "SP"))
-            "SE" -> holidays.add(Holiday(LocalDate.of(year, Month.JULY, 8), "Autonomia de Sergipe", HolidayType.STATE, "SE"))
-            "TO" -> holidays.add(Holiday(LocalDate.of(year, Month.OCTOBER, 5), "Criação de Tocantins", HolidayType.STATE, "TO"))
-        }
-
-        // Municipal Holidays
-        val cityClean = city?.lowercase()?.trim() ?: ""
-        val stateUpper = state?.uppercase() ?: ""
-        
-        when {
-            stateUpper == "SC" -> {
-                if (cityClean.contains("florianópolis") || cityClean.contains("florianopolis")) {
-                    holidays.add(Holiday(LocalDate.of(year, Month.MARCH, 23), "Aniv. Florianópolis", HolidayType.MUNICIPAL, "SC", "Florianópolis"))
-                    holidays.add(Holiday(LocalDate.of(year, Month.DECEMBER, 8), "N. Sra. Imaculada Conceição", HolidayType.MUNICIPAL, "SC", "Florianópolis"))
-                } else if (cityClean.contains("joinville")) {
-                    holidays.add(Holiday(LocalDate.of(year, Month.MARCH, 9), "Aniv. Joinville", HolidayType.MUNICIPAL, "SC", "Joinville"))
-                } else if (cityClean.contains("blumenau")) {
-                    holidays.add(Holiday(LocalDate.of(year, Month.SEPTEMBER, 2), "Aniv. Blumenau", HolidayType.MUNICIPAL, "SC", "Blumenau"))
-                }
-            }
-            stateUpper == "SP" && cityClean.contains("são paulo") || cityClean.contains("sao paulo") -> {
-                holidays.add(Holiday(LocalDate.of(year, Month.JANUARY, 25), "Aniv. São Paulo", HolidayType.MUNICIPAL, "SP", "São Paulo"))
-            }
-            stateUpper == "RJ" && cityClean.contains("rio de janeiro") -> {
-                holidays.add(Holiday(LocalDate.of(year, Month.JANUARY, 20), "Dia de São Sebastião", HolidayType.MUNICIPAL, "RJ", "Rio de Janeiro"))
-            }
-            stateUpper == "MG" && cityClean.contains("belo horizonte") -> {
-                holidays.add(Holiday(LocalDate.of(year, Month.DECEMBER, 8), "Imaculada Conceição", HolidayType.MUNICIPAL, "MG", "Belo Horizonte"))
-            }
-            stateUpper == "PR" && cityClean.contains("curitiba") -> {
-                holidays.add(Holiday(LocalDate.of(year, Month.SEPTEMBER, 8), "N. Sra. da Luz", HolidayType.MUNICIPAL, "PR", "Curitiba"))
-            }
-            stateUpper == "RS" && cityClean.contains("porto alegre") -> {
-                holidays.add(Holiday(LocalDate.of(year, Month.FEBRUARY, 2), "N. Sra. dos Navegantes", HolidayType.MUNICIPAL, "RS", "Porto Alegre"))
+        // State Holidays (All states)
+        val states = listOf("AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO")
+        states.forEach { state ->
+            when (state) {
+                "AC" -> holidays.add(Holiday(LocalDate.of(year, Month.JUNE, 15), "Aniversário do Acre", HolidayType.STATE, "AC"))
+                "AL" -> holidays.add(Holiday(LocalDate.of(year, Month.SEPTEMBER, 16), "Emancipação de Alagoas", HolidayType.STATE, "AL"))
+                "AP" -> holidays.add(Holiday(LocalDate.of(year, Month.SEPTEMBER, 13), "Criação do Território", HolidayType.STATE, "AP"))
+                "AM" -> holidays.add(Holiday(LocalDate.of(year, Month.SEPTEMBER, 5), "Elevação do Amazonas", HolidayType.STATE, "AM"))
+                "BA" -> holidays.add(Holiday(LocalDate.of(year, Month.JULY, 2), "Independência da Bahia", HolidayType.STATE, "BA"))
+                "CE" -> holidays.add(Holiday(LocalDate.of(year, Month.MARCH, 25), "Data Magna do Ceará", HolidayType.STATE, "CE"))
+                "DF" -> holidays.add(Holiday(LocalDate.of(year, Month.APRIL, 21), "Fundação de Brasília", HolidayType.STATE, "DF"))
+                "MA" -> holidays.add(Holiday(LocalDate.of(year, Month.JULY, 28), "Adesão do Maranhão", HolidayType.STATE, "MA"))
+                "MT" -> holidays.add(Holiday(LocalDate.of(year, Month.NOVEMBER, 20), "Consciência Negra", HolidayType.STATE, "MT"))
+                "MS" -> holidays.add(Holiday(LocalDate.of(year, Month.OCTOBER, 11), "Criação do Estado", HolidayType.STATE, "MS"))
+                "MG" -> holidays.add(Holiday(LocalDate.of(year, Month.APRIL, 21), "Data Magna", HolidayType.STATE, "MG"))
+                "PA" -> holidays.add(Holiday(LocalDate.of(year, Month.AUGUST, 15), "Adesão do Pará", HolidayType.STATE, "PA"))
+                "PB" -> holidays.add(Holiday(LocalDate.of(year, Month.AUGUST, 5), "Fundação da Paraíba", HolidayType.STATE, "PB"))
+                "PR" -> holidays.add(Holiday(LocalDate.of(year, Month.DECEMBER, 19), "Emancipação do Paraná", HolidayType.STATE, "PR"))
+                "PE" -> holidays.add(Holiday(LocalDate.of(year, Month.MARCH, 6), "Data Magna", HolidayType.STATE, "PE"))
+                "PI" -> holidays.add(Holiday(LocalDate.of(year, Month.OCTOBER, 19), "Dia do Piauí", HolidayType.STATE, "PI"))
+                "RJ" -> holidays.add(Holiday(LocalDate.of(year, Month.APRIL, 23), "Dia de São Jorge", HolidayType.STATE, "RJ"))
+                "RN" -> holidays.add(Holiday(LocalDate.of(year, Month.OCTOBER, 3), "Mártires de Cunhaú e Uruaçu", HolidayType.STATE, "RN"))
+                "RS" -> holidays.add(Holiday(LocalDate.of(year, Month.SEPTEMBER, 20), "Revolução Farroupilha", HolidayType.STATE, "RS"))
+                "RO" -> holidays.add(Holiday(LocalDate.of(year, Month.JANUARY, 4), "Criação de Rondônia", HolidayType.STATE, "RO"))
+                "RR" -> holidays.add(Holiday(LocalDate.of(year, Month.OCTOBER, 5), "Criação de Roraima", HolidayType.STATE, "RR"))
+                "SC" -> holidays.add(Holiday(LocalDate.of(year, Month.AUGUST, 11), "Data Magna de SC", HolidayType.STATE, "SC"))
+                "SP" -> holidays.add(Holiday(LocalDate.of(year, Month.JULY, 9), "Rev. Constitucionalista", HolidayType.STATE, "SP"))
+                "SE" -> holidays.add(Holiday(LocalDate.of(year, Month.JULY, 8), "Autonomia de Sergipe", HolidayType.STATE, "SE"))
+                "TO" -> holidays.add(Holiday(LocalDate.of(year, Month.OCTOBER, 5), "Criação de Tocantins", HolidayType.STATE, "TO"))
             }
         }
 
-        return holidays.sortedBy { it.date }
+        // Municipal Holidays (Major Cities)
+        holidays.add(Holiday(LocalDate.of(year, Month.MARCH, 23), "Aniv. Florianópolis", HolidayType.MUNICIPAL, "SC", "Florianópolis"))
+        holidays.add(Holiday(LocalDate.of(year, Month.DECEMBER, 8), "N. Sra. Imaculada Conceição", HolidayType.MUNICIPAL, "SC", "Florianópolis"))
+        holidays.add(Holiday(LocalDate.of(year, Month.MARCH, 9), "Aniv. Joinville", HolidayType.MUNICIPAL, "SC", "Joinville"))
+        holidays.add(Holiday(LocalDate.of(year, Month.SEPTEMBER, 2), "Aniv. Blumenau", HolidayType.MUNICIPAL, "SC", "Blumenau"))
+        holidays.add(Holiday(LocalDate.of(year, Month.JANUARY, 25), "Aniv. São Paulo", HolidayType.MUNICIPAL, "SP", "São Paulo"))
+        holidays.add(Holiday(LocalDate.of(year, Month.JANUARY, 20), "Dia de São Sebastião", HolidayType.MUNICIPAL, "RJ", "Rio de Janeiro"))
+        holidays.add(Holiday(LocalDate.of(year, Month.DECEMBER, 8), "Imaculada Conceição", HolidayType.MUNICIPAL, "MG", "Belo Horizonte"))
+        holidays.add(Holiday(LocalDate.of(year, Month.SEPTEMBER, 8), "N. Sra. da Luz", HolidayType.MUNICIPAL, "PR", "Curitiba"))
+        holidays.add(Holiday(LocalDate.of(year, Month.FEBRUARY, 2), "N. Sra. dos Navegantes", HolidayType.MUNICIPAL, "RS", "Porto Alegre"))
+
+        return holidays.distinctBy { "${it.date}_${it.name}_${it.state ?: ""}_${it.city ?: ""}" }.sortedBy { it.date }
     }
 
     private fun getEaster(year: Int): LocalDate {

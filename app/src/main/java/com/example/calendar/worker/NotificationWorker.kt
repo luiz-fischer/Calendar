@@ -5,15 +5,15 @@ import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
 import androidx.core.app.NotificationCompat
-import androidx.work.Worker
+import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.example.calendar.R
+import com.example.calendar.data.local.AppDatabase
 import java.time.LocalDate
 
 class NotificationWorker(context: Context, workerParams: WorkerParameters) :
-    Worker(context, workerParams) {
+    CoroutineWorker(context, workerParams) {
 
-    override fun doWork(): Result {
+    override suspend fun doWork(): Result {
         val settingsPrefs = applicationContext.getSharedPreferences("notification_settings", Context.MODE_PRIVATE)
         val enabled = settingsPrefs.getBoolean("enabled", false)
         
@@ -22,10 +22,12 @@ class NotificationWorker(context: Context, workerParams: WorkerParameters) :
         val advanceDays = settingsPrefs.getInt("advanceDays", 1)
         val targetDate = LocalDate.now().plusDays(advanceDays.toLong())
         
-        val notesPrefs = applicationContext.getSharedPreferences("calendar_notes", Context.MODE_PRIVATE)
-        val note = notesPrefs.getString(targetDate.toString(), null)
+        // Busca do banco de dados Room
+        val database = AppDatabase.getDatabase(applicationContext)
+        val events = database.eventDao().getEventsByDate(targetDate.toString())
 
-        if (note != null) {
+        if (events.isNotEmpty()) {
+            val note = events.first().title
             sendNotification(targetDate, note)
         }
 
@@ -39,24 +41,14 @@ class NotificationWorker(context: Context, workerParams: WorkerParameters) :
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                channelId,
-                "Lembretes do Calendário",
-                NotificationManager.IMPORTANCE_DEFAULT
-            ).apply {
-                description = "Notificações de notas e eventos agendados"
-            }
+                channelId, "Lembretes", NotificationManager.IMPORTANCE_DEFAULT
+            )
             notificationManager.createNotificationChannel(channel)
         }
 
-        val title = if (LocalDate.now().plusDays(1) == date) {
-            "Lembrete para amanhã"
-        } else {
-            "Lembrete para o dia ${date.dayOfMonth}/${date.monthValue}"
-        }
-
         val builder = NotificationCompat.Builder(applicationContext, channelId)
-            .setSmallIcon(android.R.drawable.ic_dialog_info) // Usando ícone padrão por enquanto
-            .setContentTitle(title)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("Lembrete para ${date.dayOfMonth}/${date.monthValue}")
             .setContentText(note)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
