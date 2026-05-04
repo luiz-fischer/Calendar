@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#008577</color>
+    <string name="app_name">Calendário Brasil</string>
+    <string name="close">Fechar</string>
+    <string name="day_fri">Sex</string>
+    <string name="day_mon">Seg</string>
+    <string name="day_sat">Sáb</string>
+    <string name="day_sun">Dom</string>
+    <string name="day_thu">Qui</string>
+    <string name="day_tue">Ter</string>
+    <string name="day_wed">Qua</string>
+    <string name="municipal_holiday">Feriado Municipal</string>
+    <string name="national_holiday">Feriado Nacional</string>
+    <string name="next">Próximo</string>
+    <string name="previous">Anterior</string>
+    <string name="select_state">Selecionar Estado</string>
+    <string name="state_holiday">Feriado Estadual</string>
+    <string name="today">Hoje</string>
+    <style name="Theme.Calendar" parent="android:Theme.Material.Light.NoActionBar"/>
+</resources>
