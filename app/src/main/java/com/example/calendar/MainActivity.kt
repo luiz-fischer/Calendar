@@ -3,7 +3,9 @@ package com.example.calendar
 import android.Manifest
 import android.annotation.SuppressLint
 import android.location.Geocoder
+import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -19,6 +21,7 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
@@ -45,7 +48,13 @@ class MainActivity : ComponentActivity() {
                 ) {
                     CalendarScreen(
                         viewModel = viewModel,
-                        onRequestLocation = { locationPermissionState.launchPermissionRequest() }
+                        onRequestLocation = {
+                            if (locationPermissionState.status.isGranted) {
+                                fetchLocation()
+                            } else {
+                                locationPermissionState.launchPermissionRequest()
+                            }
+                        }
                     )
                 }
             }
@@ -55,25 +64,47 @@ class MainActivity : ComponentActivity() {
     @SuppressLint("MissingPermission")
     private fun fetchLocation() {
         val fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        
+        // Tenta obter a última localização conhecida primeiro
         fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-            location?.let {
-                val geocoder = Geocoder(this, Locale("pt", "BR"))
-                try {
-                    val addresses = geocoder.getFromLocation(it.latitude, it.longitude, 1)
-                    if (!addresses.isNullOrEmpty()) {
-                        val address = addresses[0]
-                        val state = address.adminArea // Usually State Name or Code
-                        val city = address.locality
-                        
-                        // Map state name to UF if necessary, or just use code if returned.
-                        // For simplicity, we'll try to extract the UF from adminArea or subAdminArea.
-                        val stateCode = stateToUF(state)
-                        viewModel.onLocationDetected(stateCode, city ?: "")
+            if (location != null) {
+                processLocation(location.latitude, location.longitude)
+            } else {
+                // Se não houver última localização, solicita uma atualização atual
+                fusedLocationClient.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, null)
+                    .addOnSuccessListener { currentLocation ->
+                        currentLocation?.let {
+                            processLocation(it.latitude, it.longitude)
+                        }
                     }
-                } catch (e: Exception) {
-                    e.printStackTrace()
+            }
+        }.addOnFailureListener {
+            Log.e("MainActivity", "Erro ao obter localização", it)
+        }
+    }
+
+    private fun processLocation(latitude: Double, longitude: Double) {
+        val geocoder = Geocoder(this, Locale("pt", "BR"))
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                geocoder.getFromLocation(latitude, longitude, 1) { addresses ->
+                    if (addresses.isNotEmpty()) {
+                        val address = addresses[0]
+                        val stateCode = stateToUF(address.adminArea)
+                        viewModel.onLocationDetected(stateCode, address.locality ?: "")
+                    }
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                val addresses = geocoder.getFromLocation(latitude, longitude, 1)
+                if (!addresses.isNullOrEmpty()) {
+                    val address = addresses[0]
+                    val stateCode = stateToUF(address.adminArea)
+                    viewModel.onLocationDetected(stateCode, address.locality ?: "")
                 }
             }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Erro no Geocoder", e)
         }
     }
 
@@ -109,4 +140,5 @@ class MainActivity : ComponentActivity() {
             "tocantins" -> "TO"
             else -> if (cleanName.length == 2) cleanName.uppercase() else "SP"
         }
+    }
 }

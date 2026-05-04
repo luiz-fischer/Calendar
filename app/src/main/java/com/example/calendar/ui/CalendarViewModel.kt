@@ -11,7 +11,7 @@ import java.time.YearMonth
 
 data class CalendarUiState(
     val selectedMonth: YearMonth = YearMonth.now(),
-    val selectedState: String? = null,
+    val selectedState: String = "SP",
     val selectedCity: String? = null,
     val holidays: List<Holiday> = emptyList(),
     val currentDay: LocalDate = LocalDate.now(),
@@ -25,7 +25,6 @@ class CalendarViewModel : ViewModel() {
     val uiState: StateFlow<CalendarUiState> = _uiState.asStateFlow()
 
     init {
-        // Automatically synced with LocalDate.now() in data class default
         updateHolidays()
     }
 
@@ -34,6 +33,11 @@ class CalendarViewModel : ViewModel() {
             _uiState.value = _uiState.value.copy(selectedMonth = newMonth)
             updateHolidays()
         }
+    }
+
+    fun onStateChange(newState: String) {
+        _uiState.value = _uiState.value.copy(selectedState = newState)
+        updateHolidays()
     }
 
     fun onLocationDetected(state: String, city: String) {

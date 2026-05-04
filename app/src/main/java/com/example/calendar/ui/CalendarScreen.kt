@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,16 +29,26 @@ import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CalendarScreen(viewModel: CalendarViewModel = viewModel()) {
+fun CalendarScreen(
+    viewModel: CalendarViewModel = viewModel(),
+    onRequestLocation: () -> Unit = {}
+) {
     val uiState by viewModel.uiState.collectAsState()
     val states = listOf("AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO")
     var showStateDialog by remember { mutableStateOf(false) }
+    var showYearDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.app_name)) },
                 actions = {
+                    IconButton(onClick = onRequestLocation) {
+                        Icon(
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = "Detectar Localização"
+                        )
+                    }
                     TextButton(onClick = { showStateDialog = true }) {
                         Text(uiState.selectedState, color = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
@@ -54,7 +65,8 @@ fun CalendarScreen(viewModel: CalendarViewModel = viewModel()) {
             CalendarHeader(
                 selectedMonth = uiState.selectedMonth,
                 onPreviousMonth = { viewModel.onMonthChange(uiState.selectedMonth.minusMonths(1)) },
-                onNextMonth = { viewModel.onMonthChange(uiState.selectedMonth.plusMonths(1)) }
+                onNextMonth = { viewModel.onMonthChange(uiState.selectedMonth.plusMonths(1)) },
+                onYearClick = { showYearDialog = true }
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -77,6 +89,17 @@ fun CalendarScreen(viewModel: CalendarViewModel = viewModel()) {
                     onDismiss = { showStateDialog = false }
                 )
             }
+
+            if (showYearDialog) {
+                YearSelectionDialog(
+                    selectedYear = uiState.selectedMonth.year,
+                    onYearSelected = { year ->
+                        viewModel.onMonthChange(uiState.selectedMonth.withYear(year))
+                        showYearDialog = false
+                    },
+                    onDismiss = { showYearDialog = false }
+                )
+            }
         }
     }
 }
@@ -85,7 +108,8 @@ fun CalendarScreen(viewModel: CalendarViewModel = viewModel()) {
 fun CalendarHeader(
     selectedMonth: YearMonth,
     onPreviousMonth: () -> Unit,
-    onNextMonth: () -> Unit
+    onNextMonth: () -> Unit,
+    onYearClick: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -98,7 +122,10 @@ fun CalendarHeader(
         Text(
             text = "${selectedMonth.month.getDisplayName(TextStyle.FULL, Locale("pt", "BR")).replaceFirstChar { it.uppercase() }} ${selectedMonth.year}",
             style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .clickable { onYearClick() }
+                .padding(8.dp)
         )
         IconButton(onClick = onNextMonth) {
             Icon(Icons.Default.ArrowForward, contentDescription = stringResource(R.string.next))
@@ -232,6 +259,51 @@ fun StateSelectionDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(state)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.close))
+            }
+        }
+    )
+}
+
+@Composable
+fun YearSelectionDialog(
+    selectedYear: Int,
+    onYearSelected: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val years = (2000..2050).toList()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Selecionar Ano") },
+        text = {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(3),
+                modifier = Modifier.height(300.dp)
+            ) {
+                items(years) { year ->
+                    Box(
+                        modifier = Modifier
+                            .padding(4.dp)
+                            .background(
+                                if (year == selectedYear) MaterialTheme.colorScheme.primaryContainer
+                                else Color.Transparent,
+                                shape = MaterialTheme.shapes.small
+                            )
+                            .clickable { onYearSelected(year) }
+                            .padding(8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = year.toString(),
+                            color = if (year == selectedYear) MaterialTheme.colorScheme.onPrimaryContainer
+                            else MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 }
             }
