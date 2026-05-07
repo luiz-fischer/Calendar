@@ -3,15 +3,17 @@ package com.example.calendar.ui
 import android.app.Application
 import android.content.Context
 import android.util.Log
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.*
-import com.example.calendar.data.HolidayProvider
 import com.example.calendar.data.local.AppDatabase
 import com.example.calendar.data.local.EventEntity
 import com.example.calendar.data.local.RecurrenceType
 import com.example.calendar.data.local.SyncStatus
 import com.example.calendar.model.Holiday
+import com.example.calendar.data.HolidayProvider
 import com.example.calendar.ui.theme.AppTheme
 import com.example.calendar.ui.theme.ThemeMode
 import com.example.calendar.worker.NotificationWorker
@@ -21,11 +23,10 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
-import java.util.TimeZone
 import java.util.concurrent.TimeUnit
 
-enum class NotificationFrequency {
-    ONCE_A_DAY, EVERY_1_HOUR, EVERY_4_HOURS, EVERY_6_HOURS
+enum class NotificationFrequency(val hours: Long) {
+    ONCE_A_DAY(24), EVERY_1_HOUR(1), EVERY_4_HOURS(4), EVERY_6_HOURS(6)
 }
 
 data class NotificationSettings(
@@ -36,24 +37,23 @@ data class NotificationSettings(
     val enabled: Boolean = false
 )
 
-enum class Screen {
-    CALENDAR, SETTINGS
-}
+enum class Screen { CALENDAR, SETTINGS }
 
 data class CalendarUiState(
     val selectedMonth: YearMonth = YearMonth.now(),
+    val selectedDay: LocalDate = LocalDate.now(),
     val holidays: List<Holiday> = emptyList(),
     val events: List<EventEntity> = emptyList(),
-    val currentDay: LocalDate = LocalDate.now(),
+    val filteredEvents: List<EventEntity> = emptyList(),
     val notificationSettings: NotificationSettings = NotificationSettings(),
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val appTheme: AppTheme = AppTheme.DEFAULT,
     val isGoogleLoggedIn: Boolean = false,
-    val conflictingEvents: List<EventEntity> = emptyList(),
-    val selectedTimezone: String = ZoneId.systemDefault().id,
     val currentScreen: Screen = Screen.CALENDAR,
     val selectedDateForNote: LocalDate? = null,
-    val showNoteDialog: Boolean = false
+    val selectedEventForEdit: EventEntity? = null,
+    val showNoteDialog: Boolean = false,
+    val searchQuery: String = ""
 )
 
 class CalendarViewModel(application: Application) : AndroidViewModel(application) {
@@ -64,167 +64,121 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
     private val sharedPreferences = application.getSharedPreferences("calendar_prefs", Context.MODE_PRIVATE)
     private val settingsPrefs = application.getSharedPreferences("notification_settings", Context.MODE_PRIVATE)
     private val themePrefs = application.getSharedPreferences("theme_settings", Context.MODE_PRIVATE)
-    private val timezonePrefs = application.getSharedPreferences("timezone_settings", Context.MODE_PRIVATE)
     
     private val _uiState = MutableStateFlow(CalendarUiState())
     val uiState: StateFlow<CalendarUiState> = _uiState.asStateFlow()
 
     init {
-        loadNotificationSettings()
-        loadThemeSettings()
-        loadTimeZoneSettings()
-        loadGoogleLoginStatus()
-        updateHolidays()
+        loadSettings()
         observeEvents()
+        updateHolidays()
     }
 
-    private fun loadGoogleLoginStatus() {
+    private fun loadSettings() {
         val isLoggedIn = sharedPreferences.getBoolean("google_logged_in", false)
-        _uiState.update { it.copy(isGoogleLoggedIn = isLoggedIn) }
+        val mode = ThemeMode.valueOf(themePrefs.getString("theme_mode", ThemeMode.SYSTEM.name)!!)
+        val theme = AppTheme.valueOf(themePrefs.getString("app_theme", AppTheme.DEFAULT.name)!!)
+        
+        val notifEnabled = settingsPrefs.getBoolean("enabled", false)
+        val notifFreq = NotificationFrequency.valueOf(settingsPrefs.getString("frequency", NotificationFrequency.ONCE_A_DAY.name)!!)
+        
+        _uiState.update { it.copy(
+            isGoogleLoggedIn = isLoggedIn,
+            themeMode = mode,
+            appTheme = theme,
+            notificationSettings = NotificationSettings(enabled = notifEnabled, frequency = notifFreq)
+        )}
     }
 
     private fun observeEvents() {
         viewModelScope.launch {
             eventDao.getAllEvents().collect { eventList ->
-                val conflicts = eventList.filter { it.syncStatus == SyncStatus.CONFLICT }
-                _uiState.update { it.copy(events = eventList, conflictingEvents = conflicts) }
+                Log.d("CalendarViewModel", "Recebidos ${eventList.size} eventos do DB")
+                _uiState.update { it.copy(
+                    events = eventList,
+                    filteredEvents = filterEvents(eventList, it.searchQuery)
+                )}
             }
         }
     }
 
-    fun onSaveNote(
-        date: LocalDate, 
-        text: String, 
-        isRecurring: Boolean = false, 
-        recurrenceType: RecurrenceType = RecurrenceType.NONE
+    private fun filterEvents(events: List<EventEntity>, query: String): List<EventEntity> {
+        if (query.isBlank()) return events
+        return events.filter { it.title.contains(query, ignoreCase = true) || it.description.contains(query, ignoreCase = true) }
+    }
+
+    fun onDayClick(date: LocalDate) {
+        _uiState.update { it.copy(selectedDay = date, selectedDateForNote = date, selectedEventForEdit = null, showNoteDialog = true) }
+    }
+    
+    fun onSelectDay(date: LocalDate) {
+        _uiState.update { it.copy(selectedDay = date) }
+    }
+
+    fun onEventClick(event: EventEntity) {
+        val date = try { LocalDate.parse(event.date) } catch(e: Exception) { LocalDate.now() }
+        _uiState.update { it.copy(selectedDateForNote = date, selectedEventForEdit = event, showNoteDialog = true) }
+    }
+
+    fun onSaveEvent(
+        date: LocalDate, title: String, description: String, color: Color,
+        startTime: String?, endTime: String?, reminder: Int, isRec: Boolean, recType: RecurrenceType
     ) {
+        // Capturamos o evento em edição ANTES de disparar a coroutine para evitar race conditions
+        val eventBeingEdited = _uiState.value.selectedEventForEdit
+        
         viewModelScope.launch {
-            val dateStr = date.toString()
-            val existingEvents = eventDao.getEventsByDate(dateStr)
-            
-            if (text.isBlank()) {
-                existingEvents.forEach { eventDao.deleteEvent(it) }
-            } else {
-                if (existingEvents.isNotEmpty()) {
-                    val event = existingEvents[0].copy(
-                        title = text,
-                        lastUpdated = System.currentTimeMillis(),
-                        syncStatus = if (existingEvents[0].googleId != null) SyncStatus.PENDING_UPDATE else SyncStatus.LOCAL_ONLY,
-                        isRecurring = isRecurring,
-                        recurrenceType = recurrenceType
-                    )
-                    eventDao.updateEvent(event)
+            try {
+                val dateString = date.toString()
+                val eventToSave = eventBeingEdited?.copy(
+                    title = title, description = description, date = dateString,
+                    color = color.toArgb(), startTime = startTime, endTime = endTime,
+                    reminderMinutes = reminder, isRecurring = isRec, recurrenceType = recType,
+                    lastUpdated = System.currentTimeMillis()
+                ) ?: EventEntity(
+                    title = title, description = description, date = dateString,
+                    color = color.toArgb(), startTime = startTime, endTime = endTime,
+                    reminderMinutes = reminder, isRecurring = isRec, recurrenceType = recType
+                )
+
+                if (eventBeingEdited != null) {
+                    eventDao.updateEvent(eventToSave)
                 } else {
-                    val newEvent = EventEntity(
-                        title = text,
-                        description = "",
-                        date = dateStr,
-                        lastUpdated = System.currentTimeMillis(),
-                        syncStatus = SyncStatus.LOCAL_ONLY,
-                        isRecurring = isRecurring,
-                        recurrenceType = recurrenceType
-                    )
-                    eventDao.insertEvent(newEvent)
+                    eventDao.insertEvent(eventToSave)
                 }
+                
+                Log.d("CalendarViewModel", "Evento salvo com sucesso para $dateString")
+                onDismissNoteDialog() // Fecha apenas após o sucesso
+            } catch (e: Exception) {
+                Log.e("CalendarViewModel", "Erro ao salvar", e)
             }
-            if (_uiState.value.isGoogleLoggedIn) {
-                syncWithGoogle()
-            }
+        }
+    }
+
+    fun onDeleteEvent(event: EventEntity) {
+        viewModelScope.launch {
+            eventDao.deleteEvent(event)
             onDismissNoteDialog()
         }
     }
 
-    fun syncWithGoogle() {
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-
-        val syncRequest = OneTimeWorkRequestBuilder<SyncWorker>()
-            .setConstraints(constraints)
-            .build()
-
-        WorkManager.getInstance(getApplication()).enqueueUniqueWork(
-            "google_calendar_sync",
-            ExistingWorkPolicy.REPLACE,
-            syncRequest
-        )
+    fun onDismissNoteDialog() {
+        _uiState.update { it.copy(showNoteDialog = false, selectedDateForNote = null, selectedEventForEdit = null) }
     }
 
-    fun resolveConflict(event: EventEntity, useLocal: Boolean) {
-        viewModelScope.launch {
-            if (useLocal) {
-                eventDao.updateEvent(event.copy(syncStatus = SyncStatus.PENDING_UPDATE))
-                syncWithGoogle()
-            } else {
-                syncWithGoogle()
-            }
-        }
-    }
-
-    private fun loadTimeZoneSettings() {
-        val savedTimezone = timezonePrefs.getString("selected_timezone", ZoneId.systemDefault().id)
-        _uiState.update { it.copy(selectedTimezone = savedTimezone!!) }
-    }
-
-    fun updateTimeZoneSettings(timezoneId: String) {
-        timezonePrefs.edit().putString("selected_timezone", timezoneId).apply()
-        _uiState.update { it.copy(selectedTimezone = timezoneId) }
-    }
-
-    fun getAllAvailableTimezones(): List<String> {
-        return TimeZone.getAvailableIDs().toList().sorted()
-    }
-
-    private fun loadNotificationSettings() {
-        val enabled = settingsPrefs.getBoolean("enabled", false)
-        val advanceDays = settingsPrefs.getInt("advanceDays", 1)
-        val frequencyName = settingsPrefs.getString("frequency", NotificationFrequency.ONCE_A_DAY.name)
-        val settings = NotificationSettings(
-            enabled = enabled,
-            advanceDays = advanceDays,
-            frequency = NotificationFrequency.valueOf(frequencyName!!),
-        )
-        _uiState.update { it.copy(notificationSettings = settings) }
-    }
-
-    private fun loadThemeSettings() {
-        val modeName = themePrefs.getString("theme_mode", ThemeMode.SYSTEM.name)
-        val themeName = themePrefs.getString("app_theme", AppTheme.DEFAULT.name)
-        _uiState.update { it.copy(themeMode = ThemeMode.valueOf(modeName!!), appTheme = AppTheme.valueOf(themeName!!)) }
-    }
-
-    fun updateThemeSettings(mode: ThemeMode, theme: AppTheme) {
-        themePrefs.edit().putString("theme_mode", mode.name).putString("app_theme", theme.name).apply()
-        _uiState.update { it.copy(themeMode = mode, appTheme = theme) }
-    }
-
-    fun updateNotificationSettings(settings: NotificationSettings) {
-        settingsPrefs.edit().putBoolean("enabled", settings.enabled).putInt("advanceDays", settings.advanceDays).putString("frequency", settings.frequency.name).apply()
-        _uiState.update { it.copy(notificationSettings = settings) }
-        if (settings.enabled) scheduleNotifications(settings)
-        else WorkManager.getInstance(getApplication()).cancelUniqueWork("calendar_notifications")
-    }
-
-    private fun scheduleNotifications(settings: NotificationSettings) {
-        val workRequest = PeriodicWorkRequestBuilder<NotificationWorker>(
-            if (settings.frequency == NotificationFrequency.ONCE_A_DAY) 24 else 4, TimeUnit.HOURS
-        ).build()
-        WorkManager.getInstance(getApplication()).enqueueUniquePeriodicWork("calendar_notifications", ExistingPeriodicWorkPolicy.UPDATE, workRequest)
+    fun goToToday() {
+        val today = LocalDate.now()
+        _uiState.update { it.copy(selectedMonth = YearMonth.from(today), selectedDay = today) }
+        updateHolidays()
     }
 
     fun onMonthChange(newMonth: YearMonth) {
-        if (newMonth.year >= 1987) {
-            _uiState.update { it.copy(selectedMonth = newMonth) }
-            updateHolidays()
-        }
+        _uiState.update { it.copy(selectedMonth = newMonth) }
+        updateHolidays()
     }
 
-    fun onDayClick(date: LocalDate) {
-        _uiState.update { it.copy(selectedDateForNote = date, showNoteDialog = true) }
-    }
-
-    fun onDismissNoteDialog() {
-        _uiState.update { it.copy(showNoteDialog = false, selectedDateForNote = null) }
+    fun onSearchQueryChange(query: String) {
+        _uiState.update { it.copy(searchQuery = query, filteredEvents = filterEvents(it.events, query)) }
     }
 
     fun navigateTo(screen: Screen) {
@@ -236,7 +190,13 @@ class CalendarViewModel(application: Application) : AndroidViewModel(application
         _uiState.update { it.copy(holidays = holidayProvider.getAllHolidays(year)) }
     }
 
-    fun requestLocationPermission() {
-        Log.d("CalendarViewModel", "Location permission requested.")
+    fun updateThemeSettings(mode: ThemeMode, theme: AppTheme) {
+        themePrefs.edit().putString("theme_mode", mode.name).putString("app_theme", theme.name).apply()
+        _uiState.update { it.copy(themeMode = mode, appTheme = theme) }
+    }
+
+    fun updateNotificationSettings(settings: NotificationSettings) {
+        settingsPrefs.edit().putBoolean("enabled", settings.enabled).putString("frequency", settings.frequency.name).apply()
+        _uiState.update { it.copy(notificationSettings = settings) }
     }
 }

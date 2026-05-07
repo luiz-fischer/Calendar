@@ -48,7 +48,6 @@ class MainActivity : ComponentActivity() {
                 themeMode = uiState.themeMode,
                 appTheme = uiState.appTheme
             ) {
-                // Pedir apenas permissão de Notificações (Android 13+)
                 val permissionsToRequest = mutableListOf<String>()
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
@@ -56,7 +55,6 @@ class MainActivity : ComponentActivity() {
 
                 val permissionsState = rememberMultiplePermissionsState(permissionsToRequest)
 
-                // Solicitar permissão de notificação se necessário ao iniciar
                 LaunchedEffect(Unit) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         permissionsState.launchMultiplePermissionRequest()
@@ -71,20 +69,14 @@ class MainActivity : ComponentActivity() {
 
                 Scaffold(
                     topBar = {
-                        TopAppBar(
-                            title = { 
-                                Text(
-                                    if (uiState.currentScreen == Screen.CALENDAR) 
-                                        stringResource(id = R.string.app_name) 
-                                    else "Configurações"
-                                ) 
-                            },
-                            colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                titleContentColor = Color.White
-                            ),
-                            navigationIcon = {
-                                if (uiState.currentScreen == Screen.SETTINGS) {
+                        if (uiState.currentScreen == Screen.SETTINGS) {
+                            TopAppBar(
+                                title = { Text("Configurações") },
+                                colors = TopAppBarDefaults.topAppBarColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    titleContentColor = Color.White
+                                ),
+                                navigationIcon = {
                                     IconButton(onClick = { viewModel.navigateTo(Screen.CALENDAR) }) {
                                         Icon(
                                             imageVector = Icons.Filled.ArrowBack,
@@ -93,9 +85,15 @@ class MainActivity : ComponentActivity() {
                                         )
                                     }
                                 }
-                            },
-                            actions = {
-                                if (uiState.currentScreen == Screen.CALENDAR) {
+                            )
+                        } else if (uiState.searchQuery.isEmpty() && uiState.currentScreen == Screen.CALENDAR) {
+                            TopAppBar(
+                                title = { Text(stringResource(id = R.string.app_name)) },
+                                colors = TopAppBarDefaults.topAppBarColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    titleContentColor = Color.White
+                                ),
+                                actions = {
                                     IconButton(onClick = { viewModel.navigateTo(Screen.SETTINGS) }) {
                                         Icon(
                                             imageVector = Icons.Filled.Settings,
@@ -104,8 +102,8 @@ class MainActivity : ComponentActivity() {
                                         )
                                     }
                                 }
-                            }
-                        )
+                            )
+                        }
                     }
                 ) { paddingValues ->
                     Surface(
@@ -115,14 +113,35 @@ class MainActivity : ComponentActivity() {
                         when (uiState.currentScreen) {
                             Screen.CALENDAR -> {
                                 CalendarScreen(
+                                    currentMonth = uiState.selectedMonth,
+                                    selectedDay = uiState.selectedDay,
                                     holidays = uiState.holidays,
                                     events = uiState.events,
+                                    filteredEvents = uiState.filteredEvents,
+                                    searchQuery = uiState.searchQuery,
+                                    onSearchQueryChange = { viewModel.onSearchQueryChange(it) },
                                     onDayClick = { date -> viewModel.onDayClick(date) },
+                                    onEventClick = { event -> viewModel.onEventClick(event) },
+                                    onTodayClick = { viewModel.goToToday() },
                                     onMonthChange = { newMonth -> viewModel.onMonthChange(newMonth) },
-                                    showNoteDialog = uiState.showNoteDialog,
-                                    selectedDateForNote = uiState.selectedDateForNote,
-                                    onSaveNote = { date, note -> viewModel.onSaveNote(date, note) },
-                                    onDismissNoteDialog = { viewModel.onDismissNoteDialog() }
+                                    showEventDialog = uiState.showNoteDialog,
+                                    selectedDateForEvent = uiState.selectedDateForNote,
+                                    selectedEventForEdit = uiState.selectedEventForEdit,
+                                    onSaveEvent = { date, title, desc, color, start, end, reminder, isRec, recType -> 
+                                        viewModel.onSaveEvent(
+                                            date = date,
+                                            title = title,
+                                            description = desc,
+                                            color = color,
+                                            startTime = start,
+                                            endTime = end,
+                                            reminder = reminder,
+                                            isRec = isRec,
+                                            recType = recType
+                                        ) 
+                                    },
+                                    onDeleteEvent = { event -> viewModel.onDeleteEvent(event) },
+                                    onDismissDialog = { viewModel.onDismissNoteDialog() }
                                 )
                             }
                             Screen.SETTINGS -> {

@@ -22,7 +22,7 @@ class NotificationWorker(context: Context, workerParams: WorkerParameters) :
         val advanceDays = settingsPrefs.getInt("advanceDays", 1)
         val targetDate = LocalDate.now().plusDays(advanceDays.toLong())
         
-        // Busca do banco de dados Room
+        // Recupera dados do armazenamento persistente
         val database = AppDatabase.getDatabase(applicationContext)
         val events = database.eventDao().getEventsByDate(targetDate.toString())
 
@@ -41,14 +41,14 @@ class NotificationWorker(context: Context, workerParams: WorkerParameters) :
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                channelId, "Lembretes", NotificationManager.IMPORTANCE_DEFAULT
+                channelId, "Notificações de Agenda", NotificationManager.IMPORTANCE_DEFAULT
             )
             notificationManager.createNotificationChannel(channel)
         }
 
         val builder = NotificationCompat.Builder(applicationContext, channelId)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("Lembrete para ${date.dayOfMonth}/${date.monthValue}")
+            .setContentTitle("Compromisso em ${date.dayOfMonth}/${date.monthValue}")
             .setContentText(note)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
